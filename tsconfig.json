@@ -1,6 +1,7 @@
 {
   "include": ["./src"],
   "compilerOptions": {
+    "moduleResolution": "node",
     "target": "ES2016",
     "lib": ["ES2016", "DOM"],
     "module": "CommonJS",
@@ -11,7 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "sourceMap": true,
+    "sourceMap": false,
     "removeComments": true,
     "noEmitOnError": true
   }
