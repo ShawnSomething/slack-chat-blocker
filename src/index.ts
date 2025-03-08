@@ -16,9 +16,19 @@ const app = new App({
     logLevel: LogLevel.DEBUG
 })
 
+const allowedUsers = ["U08FV88A22Z"]
+
 // Handle the `/kf` command
 app.command('/kf', async ({ command, ack, client }) => {
     await ack()
+
+    if(!allowedUsers.includes(command.user_id)) {
+        await client.chat.postMessage({
+            channel: command.user_id,
+            text: "sorry, this is under maintenace"
+        })
+        return
+    }
 
     await client.views.open({
         trigger_id: command.trigger_id,
