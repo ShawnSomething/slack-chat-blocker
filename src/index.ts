@@ -16,7 +16,7 @@ const app = new App({
     logLevel: LogLevel.DEBUG
 })
 
-const allowedUsers = ["U08FV88A22Z"]
+const allowedUsers = ["U069V3BGK8T"]
 
 // Handle the `/kf` command
 app.command('/kf', async ({ command, ack, client }) => {

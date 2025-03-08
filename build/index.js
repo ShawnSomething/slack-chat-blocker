@@ -56,8 +56,16 @@ const app = new bolt_1.App({
     appToken: process.env.SLACK_APP_LEVEL_TOKEN,
     logLevel: bolt_1.LogLevel.DEBUG
 });
+const allowedUsers = ["U069V3BGK8T"];
 app.command('/kf', (_a) => __awaiter(void 0, [_a], void 0, function* ({ command, ack, client }) {
     yield ack();
+    if (!allowedUsers.includes(command.user_id)) {
+        yield client.chat.postMessage({
+            channel: command.user_id,
+            text: "sorry, this is under maintenace"
+        });
+        return;
+    }
     yield client.views.open({
         trigger_id: command.trigger_id,
         view: {
