@@ -56,7 +56,7 @@ const app = new bolt_1.App({
     appToken: process.env.SLACK_APP_LEVEL_TOKEN,
     logLevel: bolt_1.LogLevel.DEBUG
 });
-const allowedUsers = ["U069V3BGK8T"];
+const allowedUsers = ["U069V3BGK8T", "U05QXA5A2BU", "U013HF0FDAM", "U07MGPHQT8W", "U0183SDFQMT", "U03FPB5JF6U", "U01L04SKBBM"];
 app.command('/kf', (_a) => __awaiter(void 0, [_a], void 0, function* ({ command, ack, client }) {
     yield ack();
     if (!allowedUsers.includes(command.user_id)) {
