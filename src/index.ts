@@ -6,174 +6,54 @@ import * as dotenv from 'dotenv'
 // authentication
 dotenv.config()
 
-const supabaseUrl = process.env.SUPABASE_URL as string
-const supabaseKey = process.env.SUPABASE_KEY as string
+const supabase = createClient(
+    process.env.SUPABASE_URL as string, 
+    process.env.SUPABASE_KEY as string
+)
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+type TokenSet = {
+    openAIKey: string
+    slackBotToken: string
+    slackSigningSecret: string
+    slackAppLevelToken: string
+}
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY as string
-})
+let openai: OpenAI
+let slackApp: App
 
-const app = new App({
-    token: process.env.SLACK_BOT_TOKEN as string,
-    signingSecret: process.env.SLACK_SIGNING_SECRET as string,
-    socketMode: true,
-    appToken: process.env.SLACK_APP_LEVEL_TOKEN,
-    logLevel: LogLevel.DEBUG
-})
+// fetch tokens from supabase
+const getTokens = async (id: string): Promise<TokenSet | null> => {
+    const { data, error } = await supabase
+        .from("keys")
+        .select("OPEN_AI_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
+        .eq("id", id)
+        .single()
+
+    if (error) {
+        console.error("Supabase error:", error.message)
+        return null
+    }
+
+    const missingToken: string[] = []
+    if(!data?.OPEN_AI_KEY) missingToken.push("OPEN_AI_KEY")
+    if(!data?.SLACK_BOT_TOKEN) missingToken.push("SLACK_BOT_TOKEN")
+    if(!data?.SLACK_SIGNING_SECRET) missingToken.push("SLACK_SIGNING_SECRET")
+    if(!data?.SLACK_APP_LEVEL_TOKEN) missingToken.push("SLACK_APP_LEVEL_TOKEN")
+
+    if (missingToken.length > 0) {
+        console.error(`Missing token: ${missingToken.join(",")}`)
+        return null
+    }
+
+    return {
+        openAIKey: data.OPEN_AI_KEY,
+        slackBotToken: data.SLACK_BOT_TOKEN,
+        slackSigningSecret: data.SLACK_SIGNING_SECRET,
+        slackAppLevelToken: data.SLACK_APP_LEVEL_TOKEN,
+      };
+}
 
 const allowedUsers = JSON.parse(process.env.USERS as string) as string[]
-
-// Handle the `/kf` command
-app.command('/kf', async ({ command, ack, client }) => {
-    await ack()
-
-    if(!allowedUsers.includes(command.user_id)) {
-        await client.chat.postMessage({
-            channel: command.user_id,
-            text: "sorry, this is under maintenace"
-        })
-        return
-    }
-
-    await client.views.open({
-        trigger_id: command.trigger_id,
-        view: {
-            type: 'modal',
-            callback_id: 'message_submission',
-            title: { type: 'plain_text', text: 'Send a Safe Message' },
-            blocks: [
-                {
-                    type: 'input',
-                    block_id: 'message_input',
-                    label: { type: 'plain_text', text: 'Your Message' },
-                    element: {
-                        type: 'plain_text_input',
-                        action_id: 'user_message',
-                        multiline: true,
-                    }
-                },
-                {
-                    type: 'input',
-                    block_id: 'channel_select',
-                    label: { type: 'plain_text', text: 'Choose Channel or DM' },
-                    element: {
-                        type: 'conversations_select',
-                        action_id: 'selected_channel',
-                        default_to_current_conversation: true,
-                    }
-                }
-            ],
-            submit: { type: 'plain_text', text: 'Send' }
-        }
-    })
-})
-
-// Handle message action (user selects a message and clicks "More Actions" → your app)
-app.action("kf", async ({ body, ack, client }) => {
-    console.log("✅ app.action triggered for message action!") // Confirm handler is running
-    console.log("📩 Full payload:", JSON.stringify(body, null, 2)) // Print the full payload
-
-    await ack();
-    console.log("✅ ack() successful") // Confirm the event is acknowledged
-
-    const selectedMessage = (body as any).message?.text || "No message text found";
-    console.log("📌 Selected message:", selectedMessage);
-
-    const triggerId = (body as any).trigger_id;
-    console.log("📌 Trigger ID:", triggerId);
-
-    try {
-        await client.views.open({
-            trigger_id: triggerId,
-            view: {
-                type: 'modal',
-                callback_id: 'message_submission',
-                title: { type: 'plain_text', text: 'Send a Safe Message' },
-                blocks: [
-                    {
-                        type: 'input',
-                        block_id: 'message_input',
-                        label: { type: 'plain_text', text: 'Your Message' },
-                        element: {
-                            type: 'plain_text_input',
-                            action_id: 'user_message',
-                            multiline: true,
-                            initial_value: selectedMessage,
-                        }
-                    },
-                    {
-                        type: 'input',
-                        block_id: 'channel_select',
-                        label: { type: 'plain_text', text: 'Choose Channel or DM' },
-                        element: {
-                            type: 'conversations_select',
-                            action_id: 'selected_channel',
-                            default_to_current_conversation: true,
-                        }
-                    }
-                ],
-                submit: { type: 'plain_text', text: 'Send' }
-            }
-        });
-
-        console.log("✅ Modal opened successfully");
-    } catch (error) {
-        console.error("❌ Slack API error:", error);
-    }
-});
-
-
-
-// Handle modal submission
-app.view('message_submission', async ({ view, ack, client, body }) => {
-    await ack()
-
-    const userId = body.user.id
-    const userMessage = view.state.values.message_input.user_message.value as string;
-    const selectedChannel = view.state.values.channel_select.selected_channel.selected_conversation as string;
-
-
-    console.log("📌 Selected Channel:", selectedChannel)
-
-    const evaluation = await evaluateMessage(userMessage)
-
-    if (!evaluation.isValid) {
-        await client.chat.postMessage({
-            channel: userId,
-            text: `🚫 Your message was not sent because: "${evaluation.reason}".\n💡 Suggestion: "${evaluation.suggestion}"`
-        })
-        return
-    } 
-    
-    try {
-        let finalChannel = selectedChannel
-        if (selectedChannel.startsWith("U")) {
-            console.log("Opening DM with user", selectedChannel)
-            const im = await client.conversations.open({users: selectedChannel})
-            if (!im.channel?.id) {
-                throw new Error("Failed to open DM: No valid channel ID returned.");
-            }
-
-            finalChannel = im.channel.id;
-        }
-        
-        await client.chat.postMessage({
-            channel: userId,
-            text: `✅ Your message is all good! -- ${evaluation.text}`, 
-        })
-
-        console.log("✅ Message sent successfully!")
-    } catch (error) {
-        console.error("❌ Error sending message:", error);
-        await client.chat.postMessage({
-            channel: userId,
-            text: `❌ Failed to send your message. Please try again. This was your message -- ${userMessage}`
-        });
-    }
-})
-
 
 // AI Evaluation Function
 async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: string; reason?: string; suggestion?: string }> {
@@ -202,7 +82,7 @@ async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: 
         try {
             parsedResponse = JSON.parse(aiResponse || "{}");
         } catch (error) {
-            console.error("❌ JSON parsing failed", error);
+            console.error("❌ AI JSON parsing failed", error);
             return { isValid: false, text, reason: "AI response error.", suggestion: "Try rewording your message." };
         }
 
@@ -216,13 +96,159 @@ async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: 
     }
 }
 
-// Start the Slack App
-(async () => {
-    try {
-        await app.start(3000);
-        console.log('✅ Slack app is running');
-    } catch (error) {
-        console.error('❌ Failed to start Slack app:', error);
-        process.exit(1);
+// slack app startup
+;(async () => {
+    const tokens = await getTokens("default")
+    if (!tokens) {
+      console.error("❌ Tokens not loaded. Aborting startup.")
+      process.exit(1)
     }
-})();
+  
+    // Init OpenAI and Slack App
+    openai = new OpenAI({ apiKey: tokens.openAIKey })
+  
+    slackApp = new App({
+      token: tokens.slackBotToken,
+      signingSecret: tokens.slackSigningSecret,
+      socketMode: true,
+      appToken: tokens.slackAppLevelToken,
+      logLevel: LogLevel.DEBUG
+    })
+  
+    const allowedUsers = JSON.parse(process.env.USERS || "[]")
+  
+    // Register /kf handler below
+    slackApp.command('/kf', async ({ command, ack, client }) => {
+      await ack()
+  
+      if (!allowedUsers.includes(command.user_id)) {
+        await client.chat.postMessage({
+          channel: command.user_id,
+          text: "Sorry, this is under maintenance."
+        })
+        return
+      }
+  
+      await client.views.open({
+        trigger_id: command.trigger_id,
+        view: {
+          type: 'modal',
+          callback_id: 'message_submission',
+          title: { type: 'plain_text', text: 'Send a Safe Message' },
+          blocks: [
+            {
+              type: 'input',
+              block_id: 'message_input',
+              label: { type: 'plain_text', text: 'Your Message' },
+              element: {
+                type: 'plain_text_input',
+                action_id: 'user_message',
+                multiline: true,
+              }
+            },
+            {
+              type: 'input',
+              block_id: 'channel_select',
+              label: { type: 'plain_text', text: 'Choose Channel or DM' },
+              element: {
+                type: 'conversations_select',
+                action_id: 'selected_channel',
+                default_to_current_conversation: true,
+              }
+            }
+          ],
+          submit: { type: 'plain_text', text: 'Send' }
+        }
+      })
+    })
+  
+    slackApp.action("kf", async ({ body, ack, client }) => {
+      await ack()
+      const selectedMessage = (body as any).message?.text || "No message"
+      const triggerId = (body as any).trigger_id
+  
+      try {
+        await client.views.open({
+          trigger_id: triggerId,
+          view: {
+            type: 'modal',
+            callback_id: 'message_submission',
+            title: { type: 'plain_text', text: 'Send a Safe Message' },
+            blocks: [
+              {
+                type: 'input',
+                block_id: 'message_input',
+                label: { type: 'plain_text', text: 'Your Message' },
+                element: {
+                  type: 'plain_text_input',
+                  action_id: 'user_message',
+                  multiline: true,
+                  initial_value: selectedMessage,
+                }
+              },
+              {
+                type: 'input',
+                block_id: 'channel_select',
+                label: { type: 'plain_text', text: 'Choose Channel or DM' },
+                element: {
+                  type: 'conversations_select',
+                  action_id: 'selected_channel',
+                  default_to_current_conversation: true,
+                }
+              }
+            ],
+            submit: { type: 'plain_text', text: 'Send' }
+          }
+        })
+      } catch (err) {
+        console.error("❌ Slack modal error:", err)
+      }
+    })
+  
+    slackApp.view('message_submission', async ({ view, ack, client, body }) => {
+      await ack()
+  
+      const userId = body.user.id
+      const userMessage = view.state.values.message_input.user_message.value as string
+      const selectedChannel = view.state.values.channel_select.selected_channel.selected_conversation as string
+  
+      const evaluation = await evaluateMessage(userMessage)
+  
+      if (!evaluation.isValid) {
+        await client.chat.postMessage({
+          channel: userId,
+          text: `🚫 Not sent: "${evaluation.reason}". Suggestion: "${evaluation.suggestion}"`
+        })
+        return
+      }
+  
+      try {
+        let finalChannel = selectedChannel
+  
+        if (selectedChannel.startsWith("U")) {
+          const im = await client.conversations.open({ users: selectedChannel })
+          finalChannel = im.channel?.id ?? selectedChannel
+        }
+  
+        await client.chat.postMessage({
+          channel: finalChannel,
+          text: evaluation.text
+        })
+  
+        await client.chat.postMessage({
+          channel: userId,
+          text: "✅ Message sent successfully!"
+        })
+      } catch (err) {
+        console.error("❌ Message send error:", err)
+        await client.chat.postMessage({
+          channel: userId,
+          text: `❌ Failed to send. Message was: ${userMessage}`
+        })
+      }
+    })
+  
+    // Start app
+    await slackApp.start(3000)
+    console.log("✅ Slack app running on port 3000")
+  })()

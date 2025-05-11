@@ -47,149 +47,40 @@ const openai_1 = require("openai");
 const supabase_js_1 = require("@supabase/supabase-js");
 const dotenv = __importStar(require("dotenv"));
 dotenv.config();
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseKey);
-const openai = new openai_1.OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
-const app = new bolt_1.App({
-    token: process.env.SLACK_BOT_TOKEN,
-    signingSecret: process.env.SLACK_SIGNING_SECRET,
-    socketMode: true,
-    appToken: process.env.SLACK_APP_LEVEL_TOKEN,
-    logLevel: bolt_1.LogLevel.DEBUG
+const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+let openai;
+let slackApp;
+const getTokens = (id) => __awaiter(void 0, void 0, void 0, function* () {
+    const { data, error } = yield supabase
+        .from("keys")
+        .select("OPEN_AI_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
+        .eq("id", id)
+        .single();
+    if (error) {
+        console.error("Supabase error:", error.message);
+        return null;
+    }
+    const missingToken = [];
+    if (!(data === null || data === void 0 ? void 0 : data.OPEN_AI_KEY))
+        missingToken.push("OPEN_AI_KEY");
+    if (!(data === null || data === void 0 ? void 0 : data.SLACK_BOT_TOKEN))
+        missingToken.push("SLACK_BOT_TOKEN");
+    if (!(data === null || data === void 0 ? void 0 : data.SLACK_SIGNING_SECRET))
+        missingToken.push("SLACK_SIGNING_SECRET");
+    if (!(data === null || data === void 0 ? void 0 : data.SLACK_APP_LEVEL_TOKEN))
+        missingToken.push("SLACK_APP_LEVEL_TOKEN");
+    if (missingToken.length > 0) {
+        console.error(`Missing token: ${missingToken.join(",")}`);
+        return null;
+    }
+    return {
+        openAIKey: data.OPEN_AI_KEY,
+        slackBotToken: data.SLACK_BOT_TOKEN,
+        slackSigningSecret: data.SLACK_SIGNING_SECRET,
+        slackAppLevelToken: data.SLACK_APP_LEVEL_TOKEN,
+    };
 });
 const allowedUsers = JSON.parse(process.env.USERS);
-app.command('/kf', (_a) => __awaiter(void 0, [_a], void 0, function* ({ command, ack, client }) {
-    yield ack();
-    if (!allowedUsers.includes(command.user_id)) {
-        yield client.chat.postMessage({
-            channel: command.user_id,
-            text: "sorry, this is under maintenace"
-        });
-        return;
-    }
-    yield client.views.open({
-        trigger_id: command.trigger_id,
-        view: {
-            type: 'modal',
-            callback_id: 'message_submission',
-            title: { type: 'plain_text', text: 'Send a Safe Message' },
-            blocks: [
-                {
-                    type: 'input',
-                    block_id: 'message_input',
-                    label: { type: 'plain_text', text: 'Your Message' },
-                    element: {
-                        type: 'plain_text_input',
-                        action_id: 'user_message',
-                        multiline: true,
-                    }
-                },
-                {
-                    type: 'input',
-                    block_id: 'channel_select',
-                    label: { type: 'plain_text', text: 'Choose Channel or DM' },
-                    element: {
-                        type: 'conversations_select',
-                        action_id: 'selected_channel',
-                        default_to_current_conversation: true,
-                    }
-                }
-            ],
-            submit: { type: 'plain_text', text: 'Send' }
-        }
-    });
-}));
-app.action("kf", (_a) => __awaiter(void 0, [_a], void 0, function* ({ body, ack, client }) {
-    var _b;
-    console.log("✅ app.action triggered for message action!");
-    console.log("📩 Full payload:", JSON.stringify(body, null, 2));
-    yield ack();
-    console.log("✅ ack() successful");
-    const selectedMessage = ((_b = body.message) === null || _b === void 0 ? void 0 : _b.text) || "No message text found";
-    console.log("📌 Selected message:", selectedMessage);
-    const triggerId = body.trigger_id;
-    console.log("📌 Trigger ID:", triggerId);
-    try {
-        yield client.views.open({
-            trigger_id: triggerId,
-            view: {
-                type: 'modal',
-                callback_id: 'message_submission',
-                title: { type: 'plain_text', text: 'Send a Safe Message' },
-                blocks: [
-                    {
-                        type: 'input',
-                        block_id: 'message_input',
-                        label: { type: 'plain_text', text: 'Your Message' },
-                        element: {
-                            type: 'plain_text_input',
-                            action_id: 'user_message',
-                            multiline: true,
-                            initial_value: selectedMessage,
-                        }
-                    },
-                    {
-                        type: 'input',
-                        block_id: 'channel_select',
-                        label: { type: 'plain_text', text: 'Choose Channel or DM' },
-                        element: {
-                            type: 'conversations_select',
-                            action_id: 'selected_channel',
-                            default_to_current_conversation: true,
-                        }
-                    }
-                ],
-                submit: { type: 'plain_text', text: 'Send' }
-            }
-        });
-        console.log("✅ Modal opened successfully");
-    }
-    catch (error) {
-        console.error("❌ Slack API error:", error);
-    }
-}));
-app.view('message_submission', (_a) => __awaiter(void 0, [_a], void 0, function* ({ view, ack, client, body }) {
-    var _b;
-    yield ack();
-    const userId = body.user.id;
-    const userMessage = view.state.values.message_input.user_message.value;
-    const selectedChannel = view.state.values.channel_select.selected_channel.selected_conversation;
-    console.log("📌 Selected Channel:", selectedChannel);
-    const evaluation = yield evaluateMessage(userMessage);
-    if (!evaluation.isValid) {
-        yield client.chat.postMessage({
-            channel: userId,
-            text: `🚫 Your message was not sent because: "${evaluation.reason}".\n💡 Suggestion: "${evaluation.suggestion}"`
-        });
-        return;
-    }
-    try {
-        let finalChannel = selectedChannel;
-        if (selectedChannel.startsWith("U")) {
-            console.log("Opening DM with user", selectedChannel);
-            const im = yield client.conversations.open({ users: selectedChannel });
-            if (!((_b = im.channel) === null || _b === void 0 ? void 0 : _b.id)) {
-                throw new Error("Failed to open DM: No valid channel ID returned.");
-            }
-            finalChannel = im.channel.id;
-        }
-        yield client.chat.postMessage({
-            channel: userId,
-            text: `✅ Your message is all good! -- ${evaluation.text}`,
-        });
-        console.log("✅ Message sent successfully!");
-    }
-    catch (error) {
-        console.error("❌ Error sending message:", error);
-        yield client.chat.postMessage({
-            channel: userId,
-            text: `❌ Failed to send your message. Please try again. This was your message -- ${userMessage}`
-        });
-    }
-}));
 function evaluateMessage(text) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
@@ -216,7 +107,7 @@ function evaluateMessage(text) {
                 parsedResponse = JSON.parse(aiResponse || "{}");
             }
             catch (error) {
-                console.error("❌ JSON parsing failed", error);
+                console.error("❌ AI JSON parsing failed", error);
                 return { isValid: false, text, reason: "AI response error.", suggestion: "Try rewording your message." };
             }
             if (parsedResponse.offended) {
@@ -230,13 +121,143 @@ function evaluateMessage(text) {
         }
     });
 }
+;
 (() => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        yield app.start(3000);
-        console.log('✅ Slack app is running');
-    }
-    catch (error) {
-        console.error('❌ Failed to start Slack app:', error);
+    const tokens = yield getTokens("default");
+    if (!tokens) {
+        console.error("❌ Tokens not loaded. Aborting startup.");
         process.exit(1);
     }
+    openai = new openai_1.OpenAI({ apiKey: tokens.openAIKey });
+    slackApp = new bolt_1.App({
+        token: tokens.slackBotToken,
+        signingSecret: tokens.slackSigningSecret,
+        socketMode: true,
+        appToken: tokens.slackAppLevelToken,
+        logLevel: bolt_1.LogLevel.DEBUG
+    });
+    const allowedUsers = JSON.parse(process.env.USERS || "[]");
+    slackApp.command('/kf', (_a) => __awaiter(void 0, [_a], void 0, function* ({ command, ack, client }) {
+        yield ack();
+        if (!allowedUsers.includes(command.user_id)) {
+            yield client.chat.postMessage({
+                channel: command.user_id,
+                text: "Sorry, this is under maintenance."
+            });
+            return;
+        }
+        yield client.views.open({
+            trigger_id: command.trigger_id,
+            view: {
+                type: 'modal',
+                callback_id: 'message_submission',
+                title: { type: 'plain_text', text: 'Send a Safe Message' },
+                blocks: [
+                    {
+                        type: 'input',
+                        block_id: 'message_input',
+                        label: { type: 'plain_text', text: 'Your Message' },
+                        element: {
+                            type: 'plain_text_input',
+                            action_id: 'user_message',
+                            multiline: true,
+                        }
+                    },
+                    {
+                        type: 'input',
+                        block_id: 'channel_select',
+                        label: { type: 'plain_text', text: 'Choose Channel or DM' },
+                        element: {
+                            type: 'conversations_select',
+                            action_id: 'selected_channel',
+                            default_to_current_conversation: true,
+                        }
+                    }
+                ],
+                submit: { type: 'plain_text', text: 'Send' }
+            }
+        });
+    }));
+    slackApp.action("kf", (_a) => __awaiter(void 0, [_a], void 0, function* ({ body, ack, client }) {
+        var _b;
+        yield ack();
+        const selectedMessage = ((_b = body.message) === null || _b === void 0 ? void 0 : _b.text) || "No message";
+        const triggerId = body.trigger_id;
+        try {
+            yield client.views.open({
+                trigger_id: triggerId,
+                view: {
+                    type: 'modal',
+                    callback_id: 'message_submission',
+                    title: { type: 'plain_text', text: 'Send a Safe Message' },
+                    blocks: [
+                        {
+                            type: 'input',
+                            block_id: 'message_input',
+                            label: { type: 'plain_text', text: 'Your Message' },
+                            element: {
+                                type: 'plain_text_input',
+                                action_id: 'user_message',
+                                multiline: true,
+                                initial_value: selectedMessage,
+                            }
+                        },
+                        {
+                            type: 'input',
+                            block_id: 'channel_select',
+                            label: { type: 'plain_text', text: 'Choose Channel or DM' },
+                            element: {
+                                type: 'conversations_select',
+                                action_id: 'selected_channel',
+                                default_to_current_conversation: true,
+                            }
+                        }
+                    ],
+                    submit: { type: 'plain_text', text: 'Send' }
+                }
+            });
+        }
+        catch (err) {
+            console.error("❌ Slack modal error:", err);
+        }
+    }));
+    slackApp.view('message_submission', (_a) => __awaiter(void 0, [_a], void 0, function* ({ view, ack, client, body }) {
+        var _b, _c;
+        yield ack();
+        const userId = body.user.id;
+        const userMessage = view.state.values.message_input.user_message.value;
+        const selectedChannel = view.state.values.channel_select.selected_channel.selected_conversation;
+        const evaluation = yield evaluateMessage(userMessage);
+        if (!evaluation.isValid) {
+            yield client.chat.postMessage({
+                channel: userId,
+                text: `🚫 Not sent: "${evaluation.reason}". Suggestion: "${evaluation.suggestion}"`
+            });
+            return;
+        }
+        try {
+            let finalChannel = selectedChannel;
+            if (selectedChannel.startsWith("U")) {
+                const im = yield client.conversations.open({ users: selectedChannel });
+                finalChannel = (_c = (_b = im.channel) === null || _b === void 0 ? void 0 : _b.id) !== null && _c !== void 0 ? _c : selectedChannel;
+            }
+            yield client.chat.postMessage({
+                channel: finalChannel,
+                text: evaluation.text
+            });
+            yield client.chat.postMessage({
+                channel: userId,
+                text: "✅ Message sent successfully!"
+            });
+        }
+        catch (err) {
+            console.error("❌ Message send error:", err);
+            yield client.chat.postMessage({
+                channel: userId,
+                text: `❌ Failed to send. Message was: ${userMessage}`
+            });
+        }
+    }));
+    yield slackApp.start(3000);
+    console.log("✅ Slack app running on port 3000");
 }))();
