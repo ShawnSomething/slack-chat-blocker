@@ -1,8 +1,15 @@
 import { App, LogLevel } from '@slack/bolt'
 import { OpenAI } from 'openai'
+import { createClient, PostgrestError } from "@supabase/supabase-js"
 import * as dotenv from 'dotenv'
 
+// authentication
 dotenv.config()
+
+const supabaseUrl = process.env.SUPABASE_URL as string
+const supabaseKey = process.env.SUPABASE_KEY as string
+
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY as string
@@ -16,7 +23,7 @@ const app = new App({
     logLevel: LogLevel.DEBUG
 })
 
-const allowedUsers = ["U069V3BGK8T", "U05QXA5A2BU", "U013HF0FDAM", "U07MGPHQT8W", "U0183SDFQMT", "U03FPB5JF6U", "U01L04SKBBM", "U0376U51SKH"]
+const allowedUsers = JSON.parse(process.env.USERS as string) as string[]
 
 // Handle the `/kf` command
 app.command('/kf', async ({ command, ack, client }) => {

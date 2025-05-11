@@ -44,8 +44,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const bolt_1 = require("@slack/bolt");
 const openai_1 = require("openai");
+const supabase_js_1 = require("@supabase/supabase-js");
 const dotenv = __importStar(require("dotenv"));
 dotenv.config();
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseKey);
 const openai = new openai_1.OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
@@ -56,7 +60,7 @@ const app = new bolt_1.App({
     appToken: process.env.SLACK_APP_LEVEL_TOKEN,
     logLevel: bolt_1.LogLevel.DEBUG
 });
-const allowedUsers = ["U069V3BGK8T", "U05QXA5A2BU", "U013HF0FDAM", "U07MGPHQT8W", "U0183SDFQMT", "U03FPB5JF6U", "U01L04SKBBM", "U0376U51SKH"];
+const allowedUsers = JSON.parse(process.env.USERS);
 app.command('/kf', (_a) => __awaiter(void 0, [_a], void 0, function* ({ command, ack, client }) {
     yield ack();
     if (!allowedUsers.includes(command.user_id)) {
