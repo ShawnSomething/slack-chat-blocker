@@ -96,7 +96,7 @@ async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: 
 
 // slack app startup
 ;(async () => {
-    const tokens = await getTokens("U069V3BGK8T")
+    const tokens = await getTokens("1")
     if (!tokens) {
       console.error("❌ Tokens not loaded. Aborting startup.")
       process.exit(1)
