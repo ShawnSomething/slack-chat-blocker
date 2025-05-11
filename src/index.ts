@@ -22,11 +22,11 @@ let openai: OpenAI
 let slackApp: App
 
 // fetch tokens from supabase
-const getTokens = async (id: string): Promise<TokenSet | null> => {
+const getTokens = async (users: string): Promise<TokenSet | null> => {
     const { data, error } = await supabase
         .from("keys")
         .select("OPEN_AI_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
-        .eq("id", id)
+        .eq("USERS", users)
         .single()
 
     if (error) {
@@ -52,8 +52,6 @@ const getTokens = async (id: string): Promise<TokenSet | null> => {
         slackAppLevelToken: data.SLACK_APP_LEVEL_TOKEN,
       };
 }
-
-const allowedUsers = JSON.parse(process.env.USERS as string) as string[]
 
 // AI Evaluation Function
 async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: string; reason?: string; suggestion?: string }> {
@@ -98,7 +96,7 @@ async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: 
 
 // slack app startup
 ;(async () => {
-    const tokens = await getTokens("default")
+    const tokens = await getTokens("U069V3BGK8T")
     if (!tokens) {
       console.error("❌ Tokens not loaded. Aborting startup.")
       process.exit(1)
