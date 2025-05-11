@@ -114,13 +114,13 @@ async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: 
         logLevel: LogLevel.DEBUG
     })
 
-    const allowedUsers = JSON.parse(process.env.USERS || "[]")
+    const allowedUsers = "U069V3BGK8T"
 
     // Register /kf handler below
     slackApp.command('/kf', async ({ command, ack, client }) => {
         await ack()
 
-        if (!allowedUsers.includes(command.user_id)) {
+        if (command.user_id !== allowedUsers) {
             await client.chat.postMessage({
                 channel: command.user_id,
                 text: "Sorry, this is under maintenance."

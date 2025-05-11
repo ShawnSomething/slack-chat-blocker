@@ -136,10 +136,10 @@ function evaluateMessage(text) {
         appToken: tokens.slackAppLevelToken,
         logLevel: bolt_1.LogLevel.DEBUG
     });
-    const allowedUsers = JSON.parse(process.env.USERS || "[]");
+    const allowedUsers = "U069V3BGK8T";
     slackApp.command('/kf', (_a) => __awaiter(void 0, [_a], void 0, function* ({ command, ack, client }) {
         yield ack();
-        if (!allowedUsers.includes(command.user_id)) {
+        if (command.user_id !== allowedUsers) {
             yield client.chat.postMessage({
                 channel: command.user_id,
                 text: "Sorry, this is under maintenance."
