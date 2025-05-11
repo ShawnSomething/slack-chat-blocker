@@ -25,7 +25,7 @@ let slackApp: App
 const getTokens = async (id: string): Promise<TokenSet | null> => {
     const { data, error } = await supabase
         .from("keys")
-        .select("OPEN_AI_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
+        .select("OPENAI_API_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
         .eq("id", id)
         .single()
 
@@ -35,7 +35,7 @@ const getTokens = async (id: string): Promise<TokenSet | null> => {
     }
 
     const missingToken: string[] = []
-    if(!data?.OPEN_AI_KEY) missingToken.push("OPEN_AI_KEY")
+    if(!data?.OPENAI_API_KEY) missingToken.push("OPENAI_API_KEY")
     if(!data?.SLACK_BOT_TOKEN) missingToken.push("SLACK_BOT_TOKEN")
     if(!data?.SLACK_SIGNING_SECRET) missingToken.push("SLACK_SIGNING_SECRET")
     if(!data?.SLACK_APP_LEVEL_TOKEN) missingToken.push("SLACK_APP_LEVEL_TOKEN")
@@ -46,7 +46,7 @@ const getTokens = async (id: string): Promise<TokenSet | null> => {
     }
 
     return {
-        openAIKey: data.OPEN_AI_KEY,
+        openAIKey: data.OPENAI_API_KEY,
         slackBotToken: data.SLACK_BOT_TOKEN,
         slackSigningSecret: data.SLACK_SIGNING_SECRET,
         slackAppLevelToken: data.SLACK_APP_LEVEL_TOKEN,

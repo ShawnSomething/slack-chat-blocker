@@ -53,7 +53,7 @@ let slackApp;
 const getTokens = (id) => __awaiter(void 0, void 0, void 0, function* () {
     const { data, error } = yield supabase
         .from("keys")
-        .select("OPEN_AI_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
+        .select("OPENAI_API_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
         .eq("id", id)
         .single();
     if (error) {
@@ -61,8 +61,8 @@ const getTokens = (id) => __awaiter(void 0, void 0, void 0, function* () {
         return null;
     }
     const missingToken = [];
-    if (!(data === null || data === void 0 ? void 0 : data.OPEN_AI_KEY))
-        missingToken.push("OPEN_AI_KEY");
+    if (!(data === null || data === void 0 ? void 0 : data.OPENAI_API_KEY))
+        missingToken.push("OPENAI_API_KEY");
     if (!(data === null || data === void 0 ? void 0 : data.SLACK_BOT_TOKEN))
         missingToken.push("SLACK_BOT_TOKEN");
     if (!(data === null || data === void 0 ? void 0 : data.SLACK_SIGNING_SECRET))
@@ -74,7 +74,7 @@ const getTokens = (id) => __awaiter(void 0, void 0, void 0, function* () {
         return null;
     }
     return {
-        openAIKey: data.OPEN_AI_KEY,
+        openAIKey: data.OPENAI_API_KEY,
         slackBotToken: data.SLACK_BOT_TOKEN,
         slackSigningSecret: data.SLACK_SIGNING_SECRET,
         slackAppLevelToken: data.SLACK_APP_LEVEL_TOKEN,
