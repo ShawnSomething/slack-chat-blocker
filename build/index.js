@@ -46,15 +46,16 @@ const bolt_1 = require("@slack/bolt");
 const openai_1 = require("openai");
 const supabase_js_1 = require("@supabase/supabase-js");
 const dotenv = __importStar(require("dotenv"));
+const slackOauth_1 = require("./slackOauth");
 dotenv.config();
 const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 let openai;
 let slackApp;
-const getTokens = (id) => __awaiter(void 0, void 0, void 0, function* () {
+const getTokens = (user) => __awaiter(void 0, void 0, void 0, function* () {
     const { data, error } = yield supabase
         .from("keys")
         .select("OPENAI_API_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
-        .eq("id", id)
+        .eq("user", user)
         .single();
     if (error) {
         console.error("Supabase error:", error.message);
@@ -122,7 +123,7 @@ function evaluateMessage(text) {
 }
 ;
 (() => __awaiter(void 0, void 0, void 0, function* () {
-    const tokens = yield getTokens(1);
+    const tokens = yield getTokens("U069V3BGK8T");
     if (!tokens) {
         console.error("❌ Tokens not loaded. Aborting startup.");
         process.exit(1);
@@ -255,6 +256,14 @@ function evaluateMessage(text) {
                 channel: userId,
                 text: `❌ Failed to send. Message was: ${userMessage}`
             });
+        }
+    }));
+    slackApp.event('app_home_opened', (_a) => __awaiter(void 0, [_a], void 0, function* ({ event, client }) {
+        try {
+            yield (0, slackOauth_1.handleOAuthModal)(event, client);
+        }
+        catch (err) {
+            console.error("❌ Failed to show OAuth modal on app_home_opened:", err);
         }
     }));
     yield slackApp.start(3000);
