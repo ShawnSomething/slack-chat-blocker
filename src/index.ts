@@ -236,7 +236,7 @@ async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: 
 
             await client.chat.postMessage({
                 channel: userId,
-                text: "✅ Message sent successfully!"
+                text: "✅ Message looks good!"
             })
         } catch (err) {
             console.error("❌ Message send error:", err)
