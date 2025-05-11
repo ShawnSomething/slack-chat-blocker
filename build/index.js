@@ -80,7 +80,6 @@ const getTokens = (id) => __awaiter(void 0, void 0, void 0, function* () {
         slackAppLevelToken: data.SLACK_APP_LEVEL_TOKEN,
     };
 });
-const allowedUsers = JSON.parse(process.env.USERS);
 function evaluateMessage(text) {
     return __awaiter(this, void 0, void 0, function* () {
         var _a;
@@ -123,7 +122,7 @@ function evaluateMessage(text) {
 }
 ;
 (() => __awaiter(void 0, void 0, void 0, function* () {
-    const tokens = yield getTokens("default");
+    const tokens = yield getTokens("1");
     if (!tokens) {
         console.error("❌ Tokens not loaded. Aborting startup.");
         process.exit(1);

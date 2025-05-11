@@ -22,11 +22,11 @@ let openai: OpenAI
 let slackApp: App
 
 // fetch tokens from supabase
-const getTokens = async (users: string): Promise<TokenSet | null> => {
+const getTokens = async (id: string): Promise<TokenSet | null> => {
     const { data, error } = await supabase
         .from("keys")
         .select("OPEN_AI_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
-        .eq("USERS", users)
+        .eq("id", id)
         .single()
 
     if (error) {
