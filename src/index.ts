@@ -22,7 +22,7 @@ let openai: OpenAI
 let slackApp: App
 
 // fetch tokens from supabase
-const getTokens = async (id: string): Promise<TokenSet | null> => {
+const getTokens = async (id: number): Promise<TokenSet | null> => {
     const { data, error } = await supabase
         .from("keys")
         .select("OPENAI_API_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN")
@@ -96,7 +96,7 @@ async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: 
 
 // slack app startup
 ;(async () => {
-    const tokens = await getTokens("1")
+    const tokens = await getTokens(1)
     if (!tokens) {
       console.error("❌ Tokens not loaded. Aborting startup.")
       process.exit(1)

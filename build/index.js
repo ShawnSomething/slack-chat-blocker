@@ -122,7 +122,7 @@ function evaluateMessage(text) {
 }
 ;
 (() => __awaiter(void 0, void 0, void 0, function* () {
-    const tokens = yield getTokens("1");
+    const tokens = yield getTokens(1);
     if (!tokens) {
         console.error("❌ Tokens not loaded. Aborting startup.");
         process.exit(1);
