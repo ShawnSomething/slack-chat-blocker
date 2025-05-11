@@ -47,7 +47,7 @@ const openai_1 = require("openai");
 const supabase_js_1 = require("@supabase/supabase-js");
 const dotenv = __importStar(require("dotenv"));
 dotenv.config();
-const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 let openai;
 let slackApp;
 const getTokens = (id) => __awaiter(void 0, void 0, void 0, function* () {
