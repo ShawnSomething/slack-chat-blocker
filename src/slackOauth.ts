@@ -26,30 +26,52 @@ export const saveTokens = async (
     return true
 }
 
-// slack modal for gpt
+// slack oauth modal
 
 export const handleOAuthModal = async (body: any, client: App['client']) => {
     const triggerId = body.trigger_id
     const userId = body.user_id
 
-    const { data, error } = await supabase
+    const { data: userTokens, error: tokensError } = await supabase
         .from('keys')
-        .select('OPENAI_API_KEY')
+        .select('OPENAI_API_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, SLACK_APP_LEVEL_TOKEN')
         .eq('user', userId)
         .single()
 
-    if (error || !data?.OPENAI_API_KEY) {
+    if (tokensError || !userTokens) {
         await client.views.open({
             trigger_id: triggerId,
             view: {
                 type: 'modal',
                 callback_id: 'user_oauth',
-                title: { type: 'plain_text', text: 'Add OpenAI Key' },
+                title: {
+                    type: 'plain_text',
+                    text: 'Authenticate and Setup',
+                },
                 blocks: [
                     {
                         type: 'input',
+                        block_id: 'slack_oauth',
+                        label: {
+                            type: 'plain_text',
+                            text: 'Slack OAuth Token',
+                        },
+                        element: {
+                            type: 'plain_text_input',
+                            action_id: 'slack_oauth_token',
+                            placeholder: {
+                                type: 'plain_text',
+                                text: 'Enter your Slack OAuth token',
+                            },
+                        },
+                    },
+                    {
+                        type: 'input',
                         block_id: 'openai_key',
-                        label: { type: 'plain_text', text: 'OpenAI API Key' },
+                        label: {
+                            type: 'plain_text',
+                            text: 'OpenAI API Key',
+                        },
                         element: {
                             type: 'plain_text_input',
                             action_id: 'openai_key',
@@ -58,33 +80,42 @@ export const handleOAuthModal = async (body: any, client: App['client']) => {
                                 text: 'Enter your OpenAI API key',
                             },
                         },
-                    }
+                    },
                 ],
-                submit: { type: 'plain_text', text: 'Save' }
+                submit: {
+                    type: 'plain_text',
+                    text: 'Save',
+                }
             }
         })
     }
 }
 
+// form submission
 export const handleOAuthSubmission = async (view: any, ack: any, client: App['client']) => {
     await ack()
+
     const userId = view.user.id
+    const slackOAuthToken = view.state.values.slack_oauth.slack_oauth_token.value
     const openaiApiKey = view.state.values.openai_key.openai_key.value
 
-    const { error } = await supabase
-        .from('keys')
-        .update({ OPENAI_API_KEY: openaiApiKey })
-        .eq('user', userId)
+    const submittedTokens = {
+        openAIKey: openaiApiKey as string,
+        slackBotToken: slackOAuthToken as string,
+        slackSigningSecret: '',
+        slackAppLevelToken: '',
+    }
 
-    if (error) {
+    const success = await saveTokens(userId, submittedTokens)
+    if(!success) {
         await client.chat.postMessage({
             channel: userId,
-            text: 'Failed to save your OpenAI key. Please try again.'
+            text: 'Failed to save tokens. Please try again'
         })
     } else {
         await client.chat.postMessage({
             channel: userId,
-            text: '✅ OpenAI key saved successfully!'
+            text: 'Tokens saved successfully'
         })
     }
 }
