@@ -2,11 +2,15 @@ import { App, LogLevel } from '@slack/bolt'
 import { OpenAI } from 'openai'
 import { createClient, PostgrestError } from "@supabase/supabase-js"
 import * as dotenv from 'dotenv'
-import { handleOAuthModal, handleOAuthSubmission } from './slackOauth'
-
-// authentication
+import { handleOAuthModal, handleOAuthSubmission } from './slackModal'
+import express from 'express'
+import setupOAuthCallback from './oauthCallback'
 dotenv.config()
 
+const expressApp = express()
+setupOAuthCallback(expressApp)
+
+// authentication
 const supabase = createClient(
     process.env.SUPABASE_URL! as string,
     process.env.SUPABASE_SERVICE_ROLE_KEY! as string
@@ -111,7 +115,10 @@ async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: 
         signingSecret: tokens.slackSigningSecret,
         socketMode: true,
         appToken: tokens.slackAppLevelToken,
-        logLevel: LogLevel.DEBUG
+        logLevel: LogLevel.DEBUG,
+        receiver: {
+            app: expressApp
+        } as any
     })
 
     const allowedUsers = "U069V3BGK8T"
@@ -236,7 +243,7 @@ async function evaluateMessage(text: string): Promise<{ isValid: boolean; text: 
 
             await client.chat.postMessage({
                 channel: userId,
-                text: "✅ Message looks good!"
+                text: "✅ Message sent successfully!"
             })
         } catch (err) {
             console.error("❌ Message send error:", err)
